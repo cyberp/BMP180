@@ -12,8 +12,6 @@
 
 void setup()
 {
-  // init
-  bmp180.init();
 
   // welcome
   Serial.begin(9600);

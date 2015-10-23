@@ -156,10 +156,10 @@ void BMP180::measure(byte measureID) {
  * Starts the measure of the temperature.
  * The measured value must be compensated by the calibration data.
  */
-int BMP180::measureTemperature() {
+long BMP180::measureTemperature() {
 	measure(BMP180_MEASURE_TEMPERATURE);
 	delay(5);
-	return (int)readIntFromRegister(BMP180_MEASURE_VALUE_MSB);
+	return (long)readIntFromRegister(BMP180_MEASURE_VALUE_MSB);
 }
 
 /**

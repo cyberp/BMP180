@@ -35,7 +35,7 @@ void loop() {
 
   // measure
   byte samplingMode = BMP180_OVERSAMPLING_ULTRA_HIGH_RESOLUTION;
-  int ut = bmp180.measureTemperature();
+  long ut = bmp180.measureTemperature();
   long t = bmp180.compensateTemperature(ut);
   long up = bmp180.measurePressure(samplingMode);
   long p = bmp180.compensatePressure(up, samplingMode);

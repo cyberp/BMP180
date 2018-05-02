@@ -2,7 +2,7 @@
 
 BMP180.cpp
 
-Copyright by Christian Paul, 2014
+Copyright by Christian Paul, 2014, reviewed by J. Schwender 2018
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

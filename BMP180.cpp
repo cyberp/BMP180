@@ -189,34 +189,6 @@ long BMP180::compensateTemperature(long UT) {
 	return (CalTemp_B5 + 8) >> 4;  /* ÷2⁴ */
 }
 
-/**
- * Compensate the measured pressure with the calibration data.
- * The temperature must be measured and compensated before this operation - need valid B5.
- *
-long BMP180::compensatePressure(long UP, int oversampling) {
-	long B6, X1, X2, X3, B3, p;
-	unsigned long B4, B7;
-	B6 = _B5 - 4000;
-	X1 = ((long)_B2 * (B6 * B6 >> 12)) >> 11;
-	X2 = ((long)Cal_AC2 * B6) >> 11;
-	X3 = X1 + X2;
-	B3 = ((((long)Cal_AC1 * 4 + X3) << oversampling) + 2) >> 2;
-	X1 = (long)Cal_AC3 * B6 >> 13;
-	X2 = ((long)_B1 * (B6 * B6 >> 12)) >> 16;
-	X3 = ((X1 + X2) + 2) >> 2;
-	B4 = (unsigned long)Cal_AC4 * (unsigned long)(X3 + 32768) >> 15;
-	B7 = ((unsigned long)UP - B3) * (50000 >> oversampling);
-	if (B7 < 0x80000000)
-		p = (B7 * 2) / B4;
-	else
-		p = (B7 / B4) * 2;
-	X1 = (p >> 8) * (p >> 8);
-	X1 = (X1 * 3038) >> 16;
-	X2 = (-7357 * p) >> 16;
-	p = p + ((X1 + X2 + 3791) >> 4);
-	return p;
-}
-*/
 long BMP180::compensatePressure(long UP, int oversampling) {
 	long B6, X1, X2, X3, B3, p;
 	unsigned long B4, B7;
@@ -248,21 +220,21 @@ void BMP180::setSamplingMode(byte samplingMode) {
 	_samplingMode = samplingMode;
 }
 
-float BMP180::getAltitude() {
+float BMP180::getAltitude() {   // simple ISO standard implementation
 	float altitude = 44330.0 * (1.0 - pow( (P/_P0),0.1902949572) );
 	return altitude;
 }
 
-void BMP180::getData() {   // liest zuerst die Temperatur und dann den Druck
-	long ut = measureTemperature();            // Temperaturmessung unmittelbar vor der Druckmessung
-	long up = measurePressure(_samplingMode);   // scheint wichtig zu sein genau diese Reihenfolge einzuhalten
-	long t = compensateTemperature(ut);          // sonst bekommt man wesendlich stärkere Schwankungen!
+void BMP180::getData() {   // first reads the temperature then immediately the pressure
+	long ut = measureTemperature();            // it seems important to follow that sequence like
+	long up = measurePressure(_samplingMode);   //  it is given in the data sheet.
+	long t = compensateTemperature(ut);          // otherwise the noise is larger.
 	long p = compensatePressure(up, _samplingMode);
-	T = (float)t/10.0;  // belegt die globalen Variablen mit den kompensierten Werten
+	T = (float)t/10.0;  // 
 	P = (float)p/100.0;
 }
 
 void BMP180::setP0() {
     getData();
-    _P0 = P;  // Referenzwert der Höhenmessung, beim Einschalten einmal aufrufen oder bei Bedarf.
-}
+    _P0 = P;  // this is used as a reference pressure on power on/reset. Call it only once in setup().
+}             // May be used to display a pressure/altitude change since reset.

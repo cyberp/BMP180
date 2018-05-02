@@ -185,8 +185,8 @@ long BMP180::measurePressure(byte oversampling) {
 long BMP180::compensateTemperature(long UT) {
 	long X1 = (UT - (long)Cal_AC6) * (long)Cal_AC5 >> 15;
 	long X2 = ((long)Cal_MC << 11) / (X1 + (long)Cal_MD);
-	CalTemp_B5 = X1 + X2;   /* wird zur Druckkorrektur verwendet */
-	return (CalTemp_B5 + 8) >> 4;  /* ÷2⁴ */
+	CalTemp_B5 = X1 + X2;   /* this variable is used for pressure correction */
+	return (CalTemp_B5 + 8) >> 4;  /* ÷2⁴   it is obviously different from the real return value */
 }
 
 long BMP180::compensatePressure(long UP, int oversampling) {

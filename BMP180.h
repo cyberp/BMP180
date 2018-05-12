@@ -2,7 +2,7 @@
 
 BMP180.h
 
-Copyright by Christian Paul, 2014
+partial copyright Joachim Schwender, 2018
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -33,7 +33,7 @@ THE SOFTWARE.
 typedef uint8_t byte;
 
 // i2c address
-#define BMP180_I2C_ADDRESS							0x77
+#define BMP180_I2C_ADDRESS						0x77
 
 // register
 #define BMP180_MEASURE_VALUE_XLSB					0xF8
@@ -44,16 +44,16 @@ typedef uint8_t byte;
 #define BMP180_CHIP_ID_REGISTER						0xD0
 
 // values
-#define BMP180_SOFT_RESET							0xB6
+#define BMP180_SOFT_RESET						0xB6
 #define BMP180_MEASURE_TEMPERATURE					0x2E
 #define BMP180_MEASURE_PRESSURE						0x34
-#define BMP180_CHIP_ID								0x55
+#define BMP180_CHIP_ID							0x55
 
 // resolutions
 #define BMP180_OVERSAMPLING_ULTRA_LOW_POWER			0x00
 #define BMP180_OVERSAMPLING_STANDARD				0x01
 #define BMP180_OVERSAMPLING_HIGH_RESOLUTION			0x02
-#define BMP180_OVERSAMPLING_ULTRA_HIGH_RESOLUTION	0x03
+#define BMP180_OVERSAMPLING_ULTRA_HIGH_RESOLUTION		0x03
 
 // calibration data
 #define BMP180_CALIBRATION_DATA_AC1					0xAA
@@ -79,11 +79,11 @@ class BMP180 {
 	long measurePressure(byte oversampling);
 	long compensateTemperature(long UT);
 	long compensatePressure(long UP, int oversampling);
-	float formatTemperature(long T);
-	float formatPressure(long P);
 	void setSamplingMode(byte samplingMode);
-	float getPressure();
-	float getTemperature();
+	void getData();  // gets both temp and pressure and strores them in lobal variables below 
+	float getAltitude();  // implement this part of ISO 2533
+	void setP0();  // for storing a initial pressure after poer on/reset, to display differences to it
+	float T,P;   // these contain the most recent temperature and pressure values.
   private:
 	byte readID();
 	void readCalibrationData();
@@ -92,21 +92,34 @@ class BMP180 {
 	unsigned int readIntFromRegister(byte reg);
 	unsigned long readLongFromRegister(byte reg);
 	void measure(byte measureID);
-	long calculateB5(long UT);
 	byte _ID;
-	int16_t _AC1;
-	int16_t _AC2;
-	int16_t _AC3;
-	int16_t _B1;
-	int16_t _B2;
-	int16_t _MB;
-	int16_t _MC;
-	int16_t _MD;
-	uint16_t _AC4;
-	uint16_t _AC5;
-	uint16_t _AC6;
-	long _B5;
+	int16_t Cal_AC1;
+	int16_t Cal_AC2;
+	int16_t Cal_AC3;
+	uint16_t Cal_AC4;
+	uint16_t Cal_AC5;
+	uint16_t Cal_AC6;
+	int16_t Cal_B1;
+	int16_t Cal_B2;
+	int16_t Cal_MB;
+	int16_t Cal_MC;
+	int16_t Cal_MD;
+	/*
+	 Serial.print("AC1: "); Serial.println(Cal_AC1);
+	 Serial.print("AC2: "); Serial.println(Cal_AC2);
+	 Serial.print("AC3: "); Serial.println(Cal_AC3);
+	 Serial.print("AC4: "); Serial.println(Cal_AC4);
+	 Serial.print("AC5: "); Serial.println(Cal_AC5);
+	 Serial.print("AC6: "); Serial.println(Cal_AC6);
+	 Serial.print("VB1: "); Serial.println(Cal_VB1);
+	 Serial.print("VB2: "); Serial.println(Cal_VB2);
+	 Serial.print("MB: "); Serial.println(Cal_MB);
+	 Serial.print("MC: "); Serial.println(Cal_MC);
+	 Serial.print("MD: "); Serial.println(Cal_MD);
+	 */
+	long CalTemp_B5;
 	byte _samplingMode;
+	float _P0;
 };
 
 #endif

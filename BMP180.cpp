@@ -2,7 +2,7 @@
 
 BMP180.cpp
 
-Copyright by Christian Paul, 2014
+Copyright by Christian Paul, 2014, reviewed by J. Schwender 2018
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -67,17 +67,17 @@ bool BMP180::hasValidID() {
  * Read calibration data.
  */
 void BMP180::readCalibrationData() {
-	_AC1 = readIntFromRegister(BMP180_CALIBRATION_DATA_AC1);
-	_AC2 = readIntFromRegister(BMP180_CALIBRATION_DATA_AC2);
-	_AC3 = readIntFromRegister(BMP180_CALIBRATION_DATA_AC3);
-	_AC4 = readIntFromRegister(BMP180_CALIBRATION_DATA_AC4);
-	_AC5 = readIntFromRegister(BMP180_CALIBRATION_DATA_AC5);
-	_AC6 = readIntFromRegister(BMP180_CALIBRATION_DATA_AC6);
-	_B1 = readIntFromRegister(BMP180_CALIBRATION_DATA_B1);
-	_B2 = readIntFromRegister(BMP180_CALIBRATION_DATA_B2);
-	_MB = readIntFromRegister(BMP180_CALIBRATION_DATA_MB);
-	_MC = readIntFromRegister(BMP180_CALIBRATION_DATA_MC);
-	_MD = readIntFromRegister(BMP180_CALIBRATION_DATA_MD);
+	Cal_AC1 = readIntFromRegister(BMP180_CALIBRATION_DATA_AC1);
+	Cal_AC2 = readIntFromRegister(BMP180_CALIBRATION_DATA_AC2);
+	Cal_AC3 = readIntFromRegister(BMP180_CALIBRATION_DATA_AC3);
+	Cal_AC4 = readIntFromRegister(BMP180_CALIBRATION_DATA_AC4);
+	Cal_AC5 = readIntFromRegister(BMP180_CALIBRATION_DATA_AC5);
+	Cal_AC6 = readIntFromRegister(BMP180_CALIBRATION_DATA_AC6);
+	Cal_B1  = readIntFromRegister(BMP180_CALIBRATION_DATA_B1);
+	Cal_B2  = readIntFromRegister(BMP180_CALIBRATION_DATA_B2);
+	Cal_MB  = readIntFromRegister(BMP180_CALIBRATION_DATA_MB);
+	Cal_MC  = readIntFromRegister(BMP180_CALIBRATION_DATA_MC);
+	Cal_MD  = readIntFromRegister(BMP180_CALIBRATION_DATA_MD);
 }
 
 /**
@@ -153,7 +153,7 @@ void BMP180::measure(byte measureID) {
 }
 
 /**
- * Starts the measure of the temperature.
+ * Starts the measure of the uncompensated temperature.
  * The measured value must be compensated by the calibration data.
  */
 long BMP180::measureTemperature() {
@@ -163,7 +163,7 @@ long BMP180::measureTemperature() {
 }
 
 /**
- * Starts the measure of the pressure.
+ * Starts the measure of the uncompensated pressure.
  * The measured value must be compensated by the calibration data.
  */
 long BMP180::measurePressure(byte oversampling) {
@@ -180,44 +180,27 @@ long BMP180::measurePressure(byte oversampling) {
 }
 
 /**
- * Calculate B5
- *
-long BMP180::calculateB5(long UT) {
-	long X1 = (UT - (long)_AC6) * (long)_AC5 >> 15;
-	long X2 = ((long)_MC << 11) / (X1 + (long)_MD);
-	return X1 + X2;
-}
-*/
-long BMP180::calculateB5(long UT) {
-	long X1 = (UT - _AC6) * _AC5 >> 15;
-	long X2 = (_MC << 11) / (X1 + _MD);
-	return X1 + X2;
-}
-
-/**
  * Compensate the measured temperature with the calibration data.
  */
 long BMP180::compensateTemperature(long UT) {
-	_B5 = calculateB5(UT);
-	return (_B5 + 8) >> 4;
+	long X1 = (UT - (long)Cal_AC6) * (long)Cal_AC5 >> 15;
+	long X2 = ((long)Cal_MC << 11) / (X1 + (long)Cal_MD);
+	CalTemp_B5 = X1 + X2;   /* this variable is used for pressure correction */
+	return (CalTemp_B5 + 8) >> 4;  /* ÷2⁴   it is obviously different from the real return value */
 }
 
-/**
- * Compensate the measured pressure with the calibration data.
- * The temperature must be measured and compensated before this operation - need valid B5.
- *
 long BMP180::compensatePressure(long UP, int oversampling) {
 	long B6, X1, X2, X3, B3, p;
 	unsigned long B4, B7;
-	B6 = _B5 - 4000;
-	X1 = ((long)_B2 * (B6 * B6 >> 12)) >> 11;
-	X2 = ((long)_AC2 * B6) >> 11;
+	B6 = CalTemp_B5 - 4000;
+	X1 = ((long)Cal_B2 * ((B6 * B6) >> 12)) >> 11;
+	X2 = ((long)Cal_AC2 * B6) >> 11;
 	X3 = X1 + X2;
-	B3 = ((((long)_AC1 * 4 + X3) << oversampling) + 2) >> 2;
-	X1 = (long)_AC3 * B6 >> 13;
-	X2 = ((long)_B1 * (B6 * B6 >> 12)) >> 16;
+	B3 = ((((long)Cal_AC1 * 4 + X3) << oversampling) + 2) >> 2;
+	X1 = ((long)Cal_AC3 * B6) >> 13;
+	X2 = ((long)Cal_B1 * ((B6 * B6) >> 12)) >> 16;
 	X3 = ((X1 + X2) + 2) >> 2;
-	B4 = (unsigned long)_AC4 * (unsigned long)(X3 + 32768) >> 15;
+	B4 = (Cal_AC4 * ((unsigned long)(X3 + 32768))) >> 15;
 	B7 = ((unsigned long)UP - B3) * (50000 >> oversampling);
 	if (B7 < 0x80000000)
 		p = (B7 * 2) / B4;
@@ -228,44 +211,6 @@ long BMP180::compensatePressure(long UP, int oversampling) {
 	X2 = (-7357 * p) >> 16;
 	p = p + ((X1 + X2 + 3791) >> 4);
 	return p;
-}
-*/
-long BMP180::compensatePressure(long UP, int oversampling) {
-	long B6, X1, X2, X3, B3, p;
-	unsigned long B4, B7;
-	B6 = _B5 - 4000;
-	X1 = (_B2 * (B6 * B6 >> 12)) >> 11;
-	X2 = (_AC2 * B6) >> 11;
-	X3 = X1 + X2;
-	B3 = (((_AC1 * 4 + X3) << oversampling) + 2) >> 2;
-	X1 = _AC3 * B6 >> 13;
-	X2 = (_B1 * (B6 * B6 >> 12)) >> 16;
-	X3 = ((X1 + X2) + 2) >> 2;
-	B4 = _AC4 * (unsigned long)(X3 + 32768) >> 15;
-	B7 = ((unsigned long)UP - B3) * (50000 >> oversampling);
-	if (B7 < 0x80000000)
-		p = (B7 * 2) / B4;
-	else
-		p = (B7 / B4) * 2;
-	X1 = (p >> 8) * (p >> 8);
-	X1 = (X1 * 3038) >> 16;
-	X2 = (-7357 * p) >> 16;
-	p = p + ((X1 + X2 + 3791) >> 4);
-	return p;
-}
-
-/**
- * Format the temperature
- */
-float BMP180::formatTemperature(long T) {
-	return (float)T / 10;
-}
-
-/**
- * Format the pressure
- */
-float BMP180::formatPressure(long P) {
-	return (float)P / 100;
 }
 
 /**
@@ -275,20 +220,21 @@ void BMP180::setSamplingMode(byte samplingMode) {
 	_samplingMode = samplingMode;
 }
 
-/**
- * Get the temperature.
- */
-float BMP180::getTemperature() {
-	int ut = measureTemperature();
-	long t = compensateTemperature(ut);
-	return formatTemperature(t);
+float BMP180::getAltitude() {   // simple ISO standard implementation
+	float altitude = 44330.0 * (1.0 - pow( (P/_P0),0.1902949572) );
+	return altitude;
 }
 
-/**
- * Get the pressure.
- */
-float BMP180::getPressure() {
-	long up = measurePressure(_samplingMode);
+void BMP180::getData() {   // first reads the temperature then immediately the pressure
+	long ut = measureTemperature();            // it seems important to follow that sequence like
+	long up = measurePressure(_samplingMode);   //  it is given in the data sheet.
+	long t = compensateTemperature(ut);          // otherwise the noise is larger.
 	long p = compensatePressure(up, _samplingMode);
-	return formatPressure(p);
+	T = (float)t/10.0;  // 
+	P = (float)p/100.0;
 }
+
+void BMP180::setP0() {
+    getData();
+    _P0 = P;  // this is used as a reference pressure on power on/reset. Call it only once in setup().
+}             // May be used to display a pressure/altitude change since reset.

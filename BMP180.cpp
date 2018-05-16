@@ -181,18 +181,18 @@ long BMP180::measurePressure(byte oversampling) {
 
 /**
  * Calculate B5
- *
+ */
 long BMP180::calculateB5(long UT) {
 	long X1 = (UT - (long)_AC6) * (long)_AC5 >> 15;
 	long X2 = ((long)_MC << 11) / (X1 + (long)_MD);
 	return X1 + X2;
 }
-*/
+/* only ESP
 long BMP180::calculateB5(long UT) {
 	long X1 = (UT - _AC6) * _AC5 >> 15;
 	long X2 = (_MC << 11) / (X1 + _MD);
 	return X1 + X2;
-}
+}*/
 
 /**
  * Compensate the measured temperature with the calibration data.

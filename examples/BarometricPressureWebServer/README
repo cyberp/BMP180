@@ -1,1 +1,7 @@
 
+ BMP180 Barometric Pressure Sensor Display and Web Server for Arduino
+ Serves the output of a Barometric Pressure Sensor as a web page.
+ Circuit: BMP180 sensor + Display 1602a1 connected to I2C
+ 
+ created 2018-05-10 Joachim Schwender
+ 

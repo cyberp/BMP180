@@ -1,8 +1,9 @@
 /**
 
-BMP180.cpp
+BMP180.cpp, this implements the origial integer arithetic from the data sheet
+   floating point version is preferred. It shows less rounding artefacts and noise.
 
-Copyright by Christian Paul, 2014, reviewed by J. Schwender 2018
+Copyright by J. Schwender, 2018
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -70,9 +71,9 @@ void BMP180::readCalibrationData() {
 	Cal_AC1 = readIntFromRegister(BMP180_CALIBRATION_DATA_AC1);
 	Cal_AC2 = readIntFromRegister(BMP180_CALIBRATION_DATA_AC2);
 	Cal_AC3 = readIntFromRegister(BMP180_CALIBRATION_DATA_AC3);
-	Cal_AC4 = readIntFromRegister(BMP180_CALIBRATION_DATA_AC4);
-	Cal_AC5 = readIntFromRegister(BMP180_CALIBRATION_DATA_AC5);
-	Cal_AC6 = readIntFromRegister(BMP180_CALIBRATION_DATA_AC6);
+	Cal_AC4 = readUIntFromRegister(BMP180_CALIBRATION_DATA_AC4);
+	Cal_AC5 = readUIntFromRegister(BMP180_CALIBRATION_DATA_AC5);
+	Cal_AC6 = readUIntFromRegister(BMP180_CALIBRATION_DATA_AC6);
 	Cal_B1  = readIntFromRegister(BMP180_CALIBRATION_DATA_B1);
 	Cal_B2  = readIntFromRegister(BMP180_CALIBRATION_DATA_B2);
 	Cal_MB  = readIntFromRegister(BMP180_CALIBRATION_DATA_MB);
@@ -113,15 +114,29 @@ byte BMP180::readByteFromRegister(byte reg) {
 }
 
 /**
+ * Read an signed integer from a register.
+ */
+signed int BMP180::readIntFromRegister(byte reg) {
+	signed int i;
+	selectRegister(reg);
+	Wire.beginTransmission(BMP180_I2C_ADDRESS);
+	Wire.requestFrom(BMP180_I2C_ADDRESS, 2);
+	i = (signed int)Wire.read();
+	i = i << 8 | (signed int)Wire.read();
+	Wire.endTransmission();
+	return i;
+}
+
+/**
  * Read an integer from a register.
  */
-unsigned int BMP180::readIntFromRegister(byte reg) {
+unsigned int BMP180::readUIntFromRegister(byte reg) {
 	unsigned int i;
 	selectRegister(reg);
 	Wire.beginTransmission(BMP180_I2C_ADDRESS);
 	Wire.requestFrom(BMP180_I2C_ADDRESS, 2);
-	i = Wire.read();
-	i = i << 8 | Wire.read();
+	i = (signed int)Wire.read();
+	i = i << 8 | (signed int)Wire.read();
 	Wire.endTransmission();
 	return i;
 }
@@ -159,7 +174,7 @@ void BMP180::measure(byte measureID) {
 long BMP180::measureTemperature() {
 	measure(BMP180_MEASURE_TEMPERATURE);
 	delay(5);
-	return (long)readIntFromRegister(BMP180_MEASURE_VALUE_MSB);
+	return (long)readUIntFromRegister(BMP180_MEASURE_VALUE_MSB);
 }
 
 /**
@@ -183,12 +198,16 @@ long BMP180::measurePressure(byte oversampling) {
  * Compensate the measured temperature with the calibration data.
  */
 long BMP180::compensateTemperature(long UT) {
-	long X1 = (UT - (long)Cal_AC6) * (long)Cal_AC5 >> 15;
+	long X1 = ((UT - (long)Cal_AC6) * (long)Cal_AC5) >> 15;
 	long X2 = ((long)Cal_MC << 11) / (X1 + (long)Cal_MD);
-	CalTemp_B5 = X1 + X2;   /* this variable is used for pressure correction */
-	return (CalTemp_B5 + 8) >> 4;  /* ÷2⁴   it is obviously different from the real return value */
+	CalTemp_B5 = X1 + X2;   /* wird zur Druckkorrektur verwendet */
+	return (CalTemp_B5 + 8) >> 4;  /* ÷2⁴ */
 }
 
+/**
+ * Compensate the measured pressure with the calibration data.
+ * The temperature must be measured and compensated before this operation - need valid CalTemp_B5.
+*/
 long BMP180::compensatePressure(long UP, int oversampling) {
 	long B6, X1, X2, X3, B3, p;
 	unsigned long B4, B7;
@@ -220,21 +239,21 @@ void BMP180::setSamplingMode(byte samplingMode) {
 	_samplingMode = samplingMode;
 }
 
-float BMP180::getAltitude() {   // simple ISO standard implementation
-	float altitude = 44330.0 * (1.0 - pow( (P/_P0),0.1902949572) );
+float BMP180::getAltitude() {
+	float altitude = 44330.0 * (1.0 - pow( (P/InitialPressure),0.1902949572) );
 	return altitude;
 }
 
-void BMP180::getData() {   // first reads the temperature then immediately the pressure
-	long ut = measureTemperature();            // it seems important to follow that sequence like
-	long up = measurePressure(_samplingMode);   //  it is given in the data sheet.
-	long t = compensateTemperature(ut);          // otherwise the noise is larger.
+void BMP180::getData() {   // liest zuerst die Temperatur und dann den Druck
+	long ut = measureTemperature();            // Temperaturmessung unmittelbar vor der Druckmessung
+	long up = measurePressure(_samplingMode);   // scheint wichtig zu sein genau diese Reihenfolge einzuhalten
+	long t = compensateTemperature(ut);          // sonst bekommt man wesendlich stärkere Schwankungen!
 	long p = compensatePressure(up, _samplingMode);
-	T = (float)t/10.0;  // 
+	T = (float)t/10.0;  // belegt die globalen Variablen mit den kompensierten Werten
 	P = (float)p/100.0;
 }
 
 void BMP180::setP0() {
     getData();
-    _P0 = P;  // this is used as a reference pressure on power on/reset. Call it only once in setup().
-}             // May be used to display a pressure/altitude change since reset.
+    InitialPressure = P;  // Referenzwert der Höhenmessung, beim Einschalten einmal aufrufen oder bei Bedarf.
+}
